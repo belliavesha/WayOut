@@ -50,9 +50,9 @@ if True: # directions
 if True: # fonts
     sizeOption = 40
     sizeCaption = 60
-    sizeText=17
-    fontOption = pygame.font.SysFont("monospace",sizeOption)
-    fontCaption = pygame.font.SysFont("monospace",sizeCaption)
+    sizeText=20
+    fontOption = pygame.font.SysFont("freemono",sizeOption)
+    fontCaption = pygame.font.SysFont("comicsansms",sizeCaption)
     fontText = pygame.font.SysFont("monospace", sizeText)
 
 class Screen:
@@ -479,7 +479,7 @@ if True: # states' contents
             TextBox((wc, hc-3*sizeText),fontText,"Red players' control keys are EWAZXDSQ"),
             TextBox((wc, hc-2*sizeText),fontText,"Green players' control keys are IUHNMKJY"),
             TextBox((wc, hc-1*sizeText),fontText,"Blue players' control keys are digits on the NumPad "),
-            TextBox((wc, hc),fontText,"The goal is to reach the center of the labitinth "),
+            TextBox((wc, hc),fontText,"The goal is to reach the center of the maze."),
             Menu([Button(to_menu,(wc, hc+sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
         ])
             
