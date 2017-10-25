@@ -1,16 +1,17 @@
-from time import sleep
-from random import random as rnd
-from random import shuffle 
-from numpy import zeros
-import pygame 
-from pygame.locals import *
-pygame.init()
-display_width,display_height=800,680
-ZEROSPEED=30
+if True: #import and init
+    from time import sleep
+    from random import random as rnd
+    from random import shuffle 
+    import pygame 
+    from pygame.locals import *
+    pygame.init()
+    display_width,display_height=800,680
 
 if True: # object codess
     EMPTY=0
     EXIT=1
+    ZEROSPEED=30
+    WINDOW='TheWayOut'
 
 if True: # colors
     WHITE=(255,255,255)
@@ -64,7 +65,7 @@ class Screen:
         self.display=pygame.display.set_mode(size)
         pygame.display.set_caption(name)
 
-mainScreen=Screen('TheWayOut',(display_width,display_height))
+mainScreen=Screen(WINDOW,(display_width,display_height))
 
 class Element:
     screen=mainScreen
