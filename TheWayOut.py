@@ -50,9 +50,10 @@ if True: # directions
 if True: # fonts
     sizeOption = 40
     sizeCaption = 60
+    sizeText=17
     fontOption = pygame.font.SysFont("monospace",sizeOption)
     fontCaption = pygame.font.SysFont("monospace",sizeCaption)
-    fontBoxname = pygame.font.SysFont("monospace", 14)
+    fontText = pygame.font.SysFont("monospace", sizeText)
 
 class Screen:
     def __init__(self,name,size=(600,600),background=BLACK):
@@ -396,10 +397,15 @@ class Field(Element):
         n=self.diameter
         dw=self.screen.display_width
         dh=self.screen.display_height
+        # return {
+        #     'HEXAGON':(dw/(4*n)+dw/4+i*dw/(n)-dw*j/2/(n),dh/(2*n)+j*dh/(n)),
+        #     'SQUARE':(dw/(2*n)+i*dw/(n),dh/(2*n)+j*dh/(n))
+        #     }[self.shape]
         return {
             'HEXAGON':(dw/(4*n)+dw/4+i*dw/(n)-dw*j/2/(n),dh/(2*n)+j*dh/(n)),
             'SQUARE':(dw/(2*n)+i*dw/(n),dh/(2*n)+j*dh/(n))
             }[self.shape]
+
 
     def show(self):
         for cell in self.cells.values():
@@ -416,7 +422,7 @@ if True: # state changers
         game.fill(menuContent)
 
     def you_win(name):
-        game.fill(Content([game.content,congratsContent(name)]))
+        game.fill(congratsContent)
 
     def to_options():
         game.fill(optionsContent)
@@ -439,31 +445,44 @@ if True: # state changers
             p.append(Player(e,controlkeys[k],"Player "+str(k+1),playerColors[k]))
 
         game.fill(Content([Button(to_menu,(0, 0),fontOption," ",K_BUTTON=K_ESCAPE),f]+p))
+
+    def to_info():
+        game.fill(infoContent)
  
 if True: # states' contents  
+    wc=display_width/2
+    hc=display_height/2
     optionsContent = Content([
             Menu([
-                Option(size,(display_width/2, display_height/2-sizeOption),fontOption),
-                Option(shape,(display_width/2, display_height/2),fontOption),
-                Option(lights,(display_width/2, display_height/2+sizeOption),fontOption),
-                Option(players,(display_width/2, display_height/2+2*sizeOption),fontOption),
-                Button(to_menu,(display_width/2, display_height/2+3*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
-            TextBox((display_width/2, display_height/2-2*sizeCaption),fontCaption,"Options")])
+                Option(size,(wc,hc-sizeOption),fontOption),
+                Option(shape,(wc, hc),fontOption),
+                Option(lights,(wc, hc+sizeOption),fontOption),
+                Option(players,(wc, hc+2*sizeOption),fontOption),
+                Button(to_menu,(wc, hc+3*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
+            TextBox((wc, hc-2*sizeCaption),fontCaption,"Options")])
             
     menuContent=Content([
-            Menu([Button(to_game,(display_width/2, display_height/2-sizeOption),fontOption,"PLAY"),
-                Button(to_options,(display_width/2, display_height/2),fontOption,"OPTIONS"),
-                Button(close,(display_width/2, display_height/2+sizeOption),fontOption,"QUIT",K_BUTTON=K_ESCAPE)]),
-            TextBox((display_width/2, display_height/2-2*sizeCaption),fontCaption,"Menu")])
+            Menu([Button(to_game,(wc, hc-sizeOption),fontOption,"PLAY",K_BUTTON=K_p),
+                Button(to_options,(wc, hc),fontOption,"OPTIONS",K_BUTTON=K_o),
+                Button(to_info,(wc, hc+sizeOption),fontOption,"INFO",K_BUTTON=K_i),                
+                Button(close,(wc, hc+2*sizeOption),fontOption,"QUIT",K_BUTTON=K_ESCAPE)]),
+            TextBox((wc, hc-2*sizeCaption),fontCaption,"Menu")])
             
     congratsContent=Content([
-            Menu([Button(to_game,(display_width/2, display_height/2),fontOption,"REPLAY"),
-                Button(to_menu,(display_width/2, display_height/2+sizeOption),fontOption,"EXIT",K_BUTTON=K_ESCAPE),]),
-            TextBox((display_width/2, display_height/2-3*sizeCaption),fontCaption,"Congrats!"),
-            TextBox((display_width/2, display_height/2-sizeCaption),fontCaption,"The way out's found!"),])
-            # TextBox((display_width/2, display_height/2-2*sizeCaption),fontCaption,name),])
+            Menu([Button(to_game,(wc, hc),fontOption,"REPLAY"),
+                Button(to_menu,(wc, hc+sizeOption),fontOption,"EXIT",K_BUTTON=K_ESCAPE),]),
+            TextBox((wc, hc-3*sizeCaption),fontCaption,"Congrats!"),
+            TextBox((wc, hc-sizeCaption),fontCaption,"The way out's found!"),])
+            # TextBox((wc, hc-2*sizeCaption),fontCaption,name),])
+    
+    infoContent=Content([
+            TextBox((wc, hc-3*sizeText),fontText,"Red players' control keys are EWAZXDSQ"),
+            TextBox((wc, hc-2*sizeText),fontText,"Green players' control keys are IUHNMKJY"),
+            TextBox((wc, hc-1*sizeText),fontText,"Blue players' control keys are digits on the NumPad "),
+            TextBox((wc, hc),fontText,"The goal is to reach the center of the labitinth "),
+            Menu([Button(to_menu,(wc, hc+sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
+        ])
             
-
 to_menu()
 game.play()       
 
