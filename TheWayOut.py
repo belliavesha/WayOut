@@ -64,7 +64,7 @@ class Screen:
         self.display=pygame.display.set_mode(size)
         pygame.display.set_caption(name)
 
-mainScreen=Screen('NoGame',(display_width,display_height))
+mainScreen=Screen('TheWayOut',(display_width,display_height))
 
 class Element:
     screen=mainScreen
