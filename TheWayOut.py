@@ -6,27 +6,55 @@ import pygame
 from pygame.locals import *
 pygame.init()
 display_width,display_height=800,680
-# screen = pygame.display.set_mode((display_width, display_height))
-# pygame.display.set_caption('NoGame')
 ZEROSPEED=30
 
-if True: # objects
+if True: # object codess
     EMPTY=0
     EXIT=1
 
 if True: # colors
     WHITE=(255,255,255)
     BLACK=(0,0,0)
-    # colorSnake=(2,250,200)
-    # colorGrass=(0,100,20)
-    # colorBorder=(250,120,0)
-    # colorApple=(250,0,0)
-    # colorMouth=(250,200,200)
-    # colorBonus=(40,0,240)
-    # colorText=(240,240,10)
+    RED=(255,0,0)
+    lineColor=(200,0,0)
+    playerColor=(234,0,40)
+    wallColor=(245,245,0)
+    floorColor=(0,20,0)
+    exitColor=(255,90,0)
+    playerColors=[(200,0,0),(0,200,0),(0,0,200),]
 
+if True: # directions
+    further = lambda i, j, d, s: { 
+        6: {
+            0: (i ,j-1),    
+            1: (i-1,j-1),
+            2: (i-1 ,j),
+            3: (i,j+1),
+            4: (i+1 ,j+1),
+            5: (i+1 ,j)
+            },
+        4: {
+            0: (i ,j-1),    
+            1: (i-1 ,j),
+            2: (i,j+1),
+            3: (i+1 ,j)
+            }
+        }[s][d%s]
 
-class Screen():
+    controlkeys=[
+    [K_e,K_w,K_a,K_z,K_x,K_d,K_s,K_q],
+    [K_i,K_u,K_h,K_n,K_m,K_k,K_j,K_y],
+    [K_KP9,K_KP7,K_KP4,K_KP1,K_KP3,K_KP6,K_KP5,K_KP8],
+    ]
+
+if True: # fonts
+    sizeOption = 40
+    sizeCaption = 60
+    fontOption = pygame.font.SysFont("monospace",sizeOption)
+    fontCaption = pygame.font.SysFont("monospace",sizeCaption)
+    fontBoxname = pygame.font.SysFont("monospace", 14)
+
+class Screen:
     def __init__(self,name,size=(600,600),background=BLACK):
         self.display_width=size[0] 
         self.display_height=size[1]
@@ -63,6 +91,25 @@ class Content(Element):
         for element in self.elements:
             element.move()
 
+class Menu(Content): 
+    def __init__(self,elements):
+        Content.__init__(self, elements)
+
+    def handle(self, event):
+        for element in self.elements:
+            element.handle(event)
+        l=len(self.elements)
+        if event.type==KEYDOWN and l:
+            d={K_DOWN:1,K_UP:-1}
+            if event.key in d:
+                for e in range(l):
+                    if self.elements[e].state:
+                        self.elements[e].state=False
+                        self.elements[(e+d[event.key])%l].state=True
+                        break 
+                else:
+                    self.elements[0].state=True
+
 class Game(Element):
     def __init__(self):
         self.speed=ZEROSPEED
@@ -95,7 +142,7 @@ class Game(Element):
                 self.handle(event)
             self.show()
 
-game=Game()
+game=Game() # the main global object
 
 class TextBox(Element):
     """TextBox"""
@@ -188,55 +235,23 @@ class Option(Button):
     def __str__(self):
         return self.parameter.name+": "+str(self.parameter.value)
 
-sizeOption = 40
-sizeCaption = 60
-fontOption = pygame.font.SysFont("monospace",sizeOption)
-fontCaption = pygame.font.SysFont("monospace",sizeCaption)
-fontBoxname = pygame.font.SysFont("monospace", 14)
-
-size = Parameter('Field size',range(3,51),17)
-shape = Parameter('Shape',['SQUARE','HEXAGON'])
-players =Parameter('Number of players',[1,2,3])
-lights = Parameter('Lights')
-
-class Menu(Content): 
-    def __init__(self,elements):
-        Content.__init__(self, elements)
-
-    def handle(self, event):
-        for element in self.elements:
-            element.handle(event)
-        l=len(self.elements)
-        if event.type==KEYDOWN and l:
-            d={K_DOWN:1,K_UP:-1}
-            if event.key in d:
-                for e in range(l):
-                    if self.elements[e].state:
-                        self.elements[e].state=False
-                        self.elements[(e+d[event.key])%l].state=True
-                        break 
-                else:
-                    self.elements[0].state=True
-
 class Line(Element):
-    lineColor=(200,0,0)
     def __init__(self,start,end):
         self.start=start
         self.end=end
 
     def show(self):
-        pygame.draw.line(self.screen.display, self.lineColor, self.start,self.end,5)
+        pygame.draw.line(self.screen.display, lineColor, self.start,self.end,5)
                     
-
 class Player(Element):
-    playerColor=(234,0,40)
-    def __init__(self,cell,controls,color=playerColor):
+    def __init__(self,cell,controls,name,color=playerColor):
         self.cell=cell
         d={
             'HEXAGON':[0,1,2,3,4,5,3,1],
             'SQUARE': [0,0,1,2,2,3,2,0]
             }[cell.shape]
         self.control=dict(zip(controls,d))
+        self.name=name
         self.color=color
 
     def handle(self,event):
@@ -247,7 +262,7 @@ class Player(Element):
                 if c:
                     self.cell=c
                     if c.object == EXIT:
-                        you_win()
+                        you_win(self.name)
                     for n in c.doors:
                         if n:
                             n.visible=True    
@@ -264,11 +279,7 @@ class Player(Element):
     def show(self):
         pygame.draw.polygon(self.screen.display, self.color, self.corners())
    
-
 class Cell(Element):
-    wallColor=(245,245,0)
-    floorColor=(0,20,0)
-    exitColor=(255,90,0)
     def __init__(self,center,size,shape,vis=True,obj=EMPTY):
         self.sides={'H':6,'S':4}[shape[0]]
         self.doors=[False]*self.sides
@@ -301,16 +312,15 @@ class Cell(Element):
     def show(self):
         # print self.sides,self.corners
         if self.visible:
-            pygame.draw.polygon(self.screen.display, self.floorColor, self.corners,0)
+            pygame.draw.polygon(self.screen.display, floorColor, self.corners,0)
             for i in range(self.sides):
                 if not self.doors[i]:
-                    pygame.draw.line(self.screen.display, self.wallColor, self.corners[i-1],self.corners[i],2)
+                    pygame.draw.line(self.screen.display, wallColor, self.corners[i-1],self.corners[i],2)
                 # else:
                     # pygame.draw.line(self.screen.display,(244,0,0), self.corners[i-1],self.corners[i],2)
         if self.object==EXIT:
-            pygame.draw.circle(self.screen.display, self.exitColor, self.center, min(self.size),0)
+            pygame.draw.circle(self.screen.display,exitColor, self.center, min(self.size),0)
                     
-
 class Field(Element):
     def __init__(self,size,shape,vis=True):
         s=size
@@ -394,86 +404,65 @@ class Field(Element):
     def show(self):
         for cell in self.cells.values():
             cell.show() 
+
+if True: # Parameters   
+    size = Parameter('Field size',range(3,51),17)
+    shape = Parameter('Shape',['SQUARE','HEXAGON'])
+    players =Parameter('Number of players',[1,2,3])
+    lights = Parameter('Lights')
+
+if True: # state changers
+    def to_menu():
+        game.fill(menuContent)
+
+    def you_win(name):
+        game.fill(Content([game.content,congratsContent(name)]))
+
+    def to_options():
+        game.fill(optionsContent)
+
+    def close():
+        pygame.quit()
+        quit()
+
+    def to_game():
+        s=size.value-1
+        f=Field(size.value,shape.value,vis=(lights.value=='ON'))
+        f.cells[(s,s)].object=EXIT
+        cs=f.cells.values()
+        p=[]
+        for k in range(players.value):
+            c=cs[int(rnd()*len(cs))]
+            c.visible=True
+            e=Cell(c.center,(0,0),c.shape)
+            e.doors=[c]*10
+            p.append(Player(e,controlkeys[k],"Player "+str(k+1),playerColors[k]))
+
+        game.fill(Content([Button(to_menu,(0, 0),fontOption," ",K_BUTTON=K_ESCAPE),f]+p))
+ 
+if True: # states' contents  
+    optionsContent = Content([
+            Menu([
+                Option(size,(display_width/2, display_height/2-sizeOption),fontOption),
+                Option(shape,(display_width/2, display_height/2),fontOption),
+                Option(lights,(display_width/2, display_height/2+sizeOption),fontOption),
+                Option(players,(display_width/2, display_height/2+2*sizeOption),fontOption),
+                Button(to_menu,(display_width/2, display_height/2+3*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
+            TextBox((display_width/2, display_height/2-2*sizeCaption),fontCaption,"Options")])
             
-
-
-controlkeys=[
-[K_e,K_w,K_a,K_z,K_x,K_d,K_s,K_q],
-[K_i,K_u,K_h,K_n,K_m,K_k,K_j,K_y],
-[K_KP9,K_KP7,K_KP4,K_KP1,K_KP3,K_KP6,K_KP5,K_KP8],
-]
-playercolors=[(200,0,0),(0,200,0),(0,0,200),]
-
-def to_menu():
-    game.fill(menu)
-
-def you_win():
-    mainScreen.speed=ZEROSPEED
-    game.fill(Content([game.content,congrats]))
-
-def to_options():
-    game.fill(options)
-
-def close():
-    pygame.quit()
-    quit()
-
-def to_game():
-    s=size.value-1
-    f=Field(size.value,shape.value,vis=(lights.value=='ON'))
-    f.cells[(s,s)].object=EXIT
-    cs=f.cells.values()
-    p=[]
-    for k in range(players.value):
-        c=cs[int(rnd()*len(cs))]
-        c.visible=True
-        e=Cell(c.center,(0,0),c.shape)
-        e.doors=[c]*10
-        p.append(Player(e,controlkeys[k],playercolors[k]))
-    game.fill(Content([Button(to_menu,(0, 0),fontOption," ",K_BUTTON=K_ESCAPE),f]+p))
-    
-options = Content([
-        Menu([
-            Option(size,(display_width/2, display_height/2-sizeOption),fontOption),
-            Option(shape,(display_width/2, display_height/2),fontOption),
-            Option(lights,(display_width/2, display_height/2+sizeOption),fontOption),
-            Option(players,(display_width/2, display_height/2+2*sizeOption),fontOption),
-            Button(to_menu,(display_width/2, display_height/2+3*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
-        TextBox((display_width/2, display_height/2-2*sizeCaption),fontCaption,"Options")])
-        
-        
-
-menu=Content([
-        Menu([Button(to_game,(display_width/2, display_height/2-sizeOption),fontOption,"PLAY"),
-            Button(to_options,(display_width/2, display_height/2),fontOption,"OPTIONS"),
-            Button(close,(display_width/2, display_height/2+sizeOption),fontOption,"QUIT",K_BUTTON=K_ESCAPE)]),
-        TextBox((display_width/2, display_height/2-2*sizeCaption),fontCaption,"Menu")])
-        
-
-congrats=Content([
-        Menu([Button(to_game,(display_width/2, display_height/2),fontOption,"REPLAY"),
-            Button(to_menu,(display_width/2, display_height/2+sizeOption),fontOption,"EXIT",K_BUTTON=K_ESCAPE)]),
-        TextBox((display_width/2, display_height/2-2*sizeCaption),fontCaption,"Congrats!"),
-        TextBox((display_width/2, display_height/2- sizeCaption),fontCaption,"The way out's found!")])
-
-
-further = lambda i, j, d, s: { 
-    6: {
-        0: (i ,j-1),    
-        1: (i-1,j-1),
-        2: (i-1 ,j),
-        3: (i,j+1),
-        4: (i+1 ,j+1),
-        5: (i+1 ,j)
-        },
-    4: {
-        0: (i ,j-1),    
-        1: (i-1 ,j),
-        2: (i,j+1),
-        3: (i+1 ,j)
-        }
-    }[s][d%s]
-
+    menuContent=Content([
+            Menu([Button(to_game,(display_width/2, display_height/2-sizeOption),fontOption,"PLAY"),
+                Button(to_options,(display_width/2, display_height/2),fontOption,"OPTIONS"),
+                Button(close,(display_width/2, display_height/2+sizeOption),fontOption,"QUIT",K_BUTTON=K_ESCAPE)]),
+            TextBox((display_width/2, display_height/2-2*sizeCaption),fontCaption,"Menu")])
+            
+    congratsContent=Content([
+            Menu([Button(to_game,(display_width/2, display_height/2),fontOption,"REPLAY"),
+                Button(to_menu,(display_width/2, display_height/2+sizeOption),fontOption,"EXIT",K_BUTTON=K_ESCAPE),]),
+            TextBox((display_width/2, display_height/2-3*sizeCaption),fontCaption,"Congrats!"),
+            TextBox((display_width/2, display_height/2-sizeCaption),fontCaption,"The way out's found!"),])
+            # TextBox((display_width/2, display_height/2-2*sizeCaption),fontCaption,name),])
+            
 
 to_menu()
 game.play()       
