@@ -1,11 +1,10 @@
-if True: #import and init
+if True: # import and init
     from time import sleep
     from random import random as rnd
     from random import shuffle 
     import pygame 
     from pygame.locals import *
     pygame.init()
-    display_width,display_height=800,680
 
 if True: # object codess
     EMPTY=0
@@ -65,7 +64,7 @@ class Screen:
         self.display=pygame.display.set_mode(size)
         pygame.display.set_caption(name)
 
-mainScreen=Screen(WINDOW,(display_width,display_height))
+mainScreen=Screen(WINDOW,(812,692))
 
 class Element:
     screen=mainScreen
@@ -255,23 +254,34 @@ class Player(Element):
         self.control=dict(zip(controls,d))
         self.name=name
         self.color=color
+        self.size=self.cell.size
+
 
     def handle(self,event):
         if event.type==KEYDOWN :
             if event.key in self.control.keys():
                 d=self.control[event.key]
-                c=self.cell.doors[d]
-                if c:
-                    self.cell=c
-                    if c.object == EXIT:
-                        you_win(self.name)
-                    for n in c.doors:
-                        if n:
-                            n.visible=True    
+                if (amap.value=='empty'):
+                    for i in range(self.cell.sides):
+                        n=self.cell 
+                        while n: 
+                            n.visible=False  
+                            n=n.doors[i] 
+                if self.cell.doors[d]:
+                    self.cell=self.cell.doors[d]
+                self.cell.visible=True
+                if self.cell.object == EXIT:
+                    you_win()
+                for i in range(self.cell.sides):
+                    n=self.cell.doors[i] if lights.value!='nothing' else False
+                    while n: 
+                        n.visible=True  
+                        n=n.doors[i] if lights.value=='flashlight' else False
+
 
     def corners(self):
         cx,cy=self.cell.center
-        sx,sy=self.cell.size
+        sx,sy=self.size
         return [
             (cx,cy+sy-1),
             (cx+sx-1,cy),
@@ -317,14 +327,14 @@ class Cell(Element):
             pygame.draw.polygon(self.screen.display, floorColor, self.corners,0)
             for i in range(self.sides):
                 if not self.doors[i]:
-                    pygame.draw.line(self.screen.display, wallColor, self.corners[i-1],self.corners[i],2)
+                    pygame.draw.line(self.screen.display, wallColor, self.corners[i-1],self.corners[i],1)
                 # else:
                     # pygame.draw.line(self.screen.display,(244,0,0), self.corners[i-1],self.corners[i],2)
-        if self.object==EXIT:
-            pygame.draw.circle(self.screen.display,exitColor, self.center, min(self.size),0)
+            if self.object==EXIT:
+                pygame.draw.circle(self.screen.display,exitColor, self.center, min(self.size),0)
                     
 class Field(Element):
-    def __init__(self,size,shape,vis=True):
+    def __init__(self,size,shape,cycles=0):
         s=size
         n=2*s-1
         a={'H':6,'S':4}[shape[0]]
@@ -336,52 +346,69 @@ class Field(Element):
             'HEXAGON':(self.screen.display_width/(2*n),(2*self.screen.display_height)/(3*n)),
             'SQUARE':(self.screen.display_width/(2*n),self.screen.display_height/(2*n))}[shape]
         self.cells={}
+
         walls=0
         doors=[]
         component={}
         for i in range(n):
             for j in range(n):
                 if not self.out(i,j):
-                    self.cells[(i,j)]=Cell(self.coords(i,j),self.cell_size,shape=shape,vis=vis)
+                    self.cells[(i,j)]=Cell(self.coords(i,j),self.cell_size,shape=shape,vis=(amap.value=='full'))
                     component[(i,j)]=0
                     walls+=1
                     for d in range(a):
-                        i2,j2=further(i,j,d,a)
-                        if not self.out(i2,j2):
-                            doors.append((i,j,d))
+                        doors.append((i,j,d))
 
         shuffle(doors)
         components=[[]]
+        e=(0,0)
         for i1,j1,d in doors[:]:
             i2,j2=further(i1,j1,d,a)
-            d1,d2=d,(d+a/2)%a
-            c1,c2=component[(i1,j1)],component[(i2,j2)]
-            if not (c1==c2 >0) :
-                c11=self.cells[(i1,j1)]
-                c22=self.cells[(i2,j2)]
+            if self.out(i2,j2):
+                e=(i1,j1)
+            else:
+                d1,d2=d,(d+a/2)%a
+                c1,c2=component[(i1,j1)],component[(i2,j2)]
+                if not (c1==c2 >0) :
+                    # c11=self.cells[(i1,j1)]
+                    # c22=self.cells[(i2,j2)]
+                    self.cells[(i1,j1)].doors[d1]=self.cells[(i2,j2)]
+                    self.cells[(i2,j2)].doors[d2]=self.cells[(i1,j1)]
+                    # self.cells[walls]=Line(c11.center,c22.center)
+                    walls-=1
+                    # c1,c2=min(c2,c1),max(c1,c2)    
+                    if c2==c1==0:
+                        kc=len(components)
+                        components.append([(i1,j1),(i2,j2)])
+                        component[(i1,j1)]=kc
+                        component[(i2,j2)]=kc
+                    elif c1==0:
+                        components[c2].append((i1,j1))
+                        component[(i1,j1)]=c2 
+                    elif c2==0:
+                        components[c1].append((i2,j2))
+                        component[(i2,j2)]=c1     
+                    else:
+                        for ki,kj in components[c1]:
+                            component[(ki,kj)]=c2 
+                            components[c2].append((ki,kj))
+                        components[c1]=[]
+                # else :
+                #     walls.append()
+                if walls == 1 : break
+        else : print "walls error", walls 
+        self.cells[e].object=EXIT  
+        shuffle(doors) 
+        for i1,j1,d in doors[:]:
+            if not cycles: break
+            i2,j2=further(i1,j1,d,a)
+            d1,d2=d,(d+a/2)%a 
+            if self.cells[(i1,j1)].doors[d]==False and (not self.out(i2,j2)):
+                cycles-=1
                 self.cells[(i1,j1)].doors[d1]=self.cells[(i2,j2)]
                 self.cells[(i2,j2)].doors[d2]=self.cells[(i1,j1)]
-                # self.cells[walls]=Line(c11.center,c22.center)
-                walls-=1
-                # c1,c2=min(c2,c1),max(c1,c2)    
-                if c2==c1==0:
-                    kc=len(components)
-                    components.append([(i1,j1),(i2,j2)])
-                    component[(i1,j1)]=kc
-                    component[(i2,j2)]=kc
-                elif c1==0:
-                    components[c2].append((i1,j1))
-                    component[(i1,j1)]=c2 
-                elif c2==0:
-                    components[c1].append((i2,j2))
-                    component[(i2,j2)]=c1     
-                else:
-                    for ki,kj in components[c1]:
-                        component[(ki,kj)]=c2 
-                        components[c2].append((ki,kj))
-                    components[c1]=[]
-            if walls==1: break
-            
+        else: print "there are no walls left"
+
 
 
     def out(self,i,j):
@@ -396,15 +423,17 @@ class Field(Element):
 
     def coords(self,i,j):
         n=self.diameter
-        dw=self.screen.display_width
-        dh=self.screen.display_height
+        dw=(self.screen.display_width/n)*n
+        ddw=(self.screen.display_width-dw)/2
+        dh=(self.screen.display_height/n)*n
+        ddh=(self.screen.display_height-dh)/2
         # return {
         #     'HEXAGON':(dw/(4*n)+dw/4+i*dw/(n)-dw*j/2/(n),dh/(2*n)+j*dh/(n)),
         #     'SQUARE':(dw/(2*n)+i*dw/(n),dh/(2*n)+j*dh/(n))
         #     }[self.shape]
         return {
-            'HEXAGON':(dw/(4*n)+dw/4+i*dw/(n)-dw*j/2/(n),dh/(2*n)+j*dh/(n)),
-            'SQUARE':(dw/(2*n)+i*dw/(n),dh/(2*n)+j*dh/(n))
+            'HEXAGON':(ddw+dw/(4*n)+dw/4+i*dw/(n)-dw*j/2/(n),ddh+dh/(2*n)+j*dh/(n)),
+            'SQUARE':(ddw+dw/(2*n)+i*dw/(n),dh/(2*n)+j*dh/(n)+ddh)
             }[self.shape]
 
 
@@ -413,16 +442,41 @@ class Field(Element):
             cell.show() 
 
 if True: # Parameters   
-    size = Parameter('Field size',range(3,51),17)
+    fiblist = [0,1,2]
+    sizes = [3]
+    for i in range(17):
+        fiblist.append(fiblist[-1]+fiblist[-2])
+        sizes.append(sizes[-1]+i/4+1)
+    size = Parameter('Field size',sizes,8)
+    cycles = Parameter('Extra doors',fiblist)
     shape = Parameter('Shape',['SQUARE','HEXAGON'])
     players =Parameter('Number of players',[1,2,3])
-    lights = Parameter('Lights')
+    lights = Parameter('Light',['nothing','torch','flashlight'])
+    amap = Parameter('Map',['full','dynamic','empty'])
+    
+
 
 if True: # state changers
     def to_menu():
         game.fill(menuContent)
+        
+    def from_scratch():    
+        s=size.value-1
+        f=Field(size.value,shape.value,cycles.value)
 
-    def you_win(name):
+        # f.cells[(0,0)].object=EXIT
+        # cs=f.cells.values()
+        p=[]
+        for k in range(players.value):
+            c=f.cells[(s,s)]#cs[int(rnd()*len(cs))]
+            c.visible=True
+            # e=Cell(c.center,(s,s),c.shape)
+            # e.doors=[c]*10
+            p.append(Player(c,controlkeys[k],"Player "+str(k+1),playerColors[k]))
+        gameContent.elements=[Button(to_menu,(0, 0),fontOption," ",K_BUTTON=K_ESCAPE),f]+p
+        game.fill(gameContent)
+
+    def you_win():
         game.fill(congratsContent)
 
     def to_options():
@@ -433,45 +487,36 @@ if True: # state changers
         quit()
 
     def to_game():
-        s=size.value-1
-        f=Field(size.value,shape.value,vis=(lights.value=='ON'))
-        f.cells[(s,s)].object=EXIT
-        cs=f.cells.values()
-        p=[]
-        for k in range(players.value):
-            c=cs[int(rnd()*len(cs))]
-            c.visible=True
-            e=Cell(c.center,(0,0),c.shape)
-            e.doors=[c]*10
-            p.append(Player(e,controlkeys[k],"Player "+str(k+1),playerColors[k]))
-
-        game.fill(Content([Button(to_menu,(0, 0),fontOption," ",K_BUTTON=K_ESCAPE),f]+p))
+        game.fill(gameContent)
 
     def to_info():
         game.fill(infoContent)
  
 if True: # states' contents  
-    wc=display_width/2
-    hc=display_height/2
+    wc=mainScreen.display_width/2
+    hc=mainScreen.display_height/2
     optionsContent = Content([
             Menu([
-                Option(size,(wc,hc-sizeOption),fontOption),
+                Option(size,(wc,hc-2*sizeOption),fontOption),
+                Option(cycles,(wc,hc-sizeOption),fontOption),
                 Option(shape,(wc, hc),fontOption),
                 Option(lights,(wc, hc+sizeOption),fontOption),
-                Option(players,(wc, hc+2*sizeOption),fontOption),
-                Button(to_menu,(wc, hc+3*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
+                Option(amap,(wc, hc+2*sizeOption),fontOption),
+                Option(players,(wc, hc+3*sizeOption),fontOption),
+                Button(to_menu,(wc, hc+4*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
             TextBox((wc, hc-2*sizeCaption),fontCaption,"Options")])
             
     menuContent=Content([
-            Menu([Button(to_game,(wc, hc-sizeOption),fontOption,"PLAY",K_BUTTON=K_p),
+            Menu([Button(from_scratch,(wc, hc-sizeOption),fontOption,"PLAY",K_BUTTON=K_p),
                 Button(to_options,(wc, hc),fontOption,"OPTIONS",K_BUTTON=K_o),
                 Button(to_info,(wc, hc+sizeOption),fontOption,"INFO",K_BUTTON=K_i),                
                 Button(close,(wc, hc+2*sizeOption),fontOption,"QUIT",K_BUTTON=K_ESCAPE)]),
             TextBox((wc, hc-2*sizeCaption),fontCaption,"Menu")])
             
     congratsContent=Content([
-            Menu([Button(to_game,(wc, hc),fontOption,"REPLAY"),
-                Button(to_menu,(wc, hc+sizeOption),fontOption,"EXIT",K_BUTTON=K_ESCAPE),]),
+            Menu([Button(from_scratch,(wc, hc),fontOption,"REPLAY"),
+                Button(to_game,(wc, hc+sizeOption),fontOption,"CONTINUE",K_BUTTON=K_ESCAPE),
+                Button(to_menu,(wc, hc+2*sizeOption),fontOption,"EXIT",K_BUTTON=K_ESCAPE),]),
             TextBox((wc, hc-3*sizeCaption),fontCaption,"Congrats!"),
             TextBox((wc, hc-sizeCaption),fontCaption,"The way out's found!"),])
             # TextBox((wc, hc-2*sizeCaption),fontCaption,name),])
@@ -480,9 +525,11 @@ if True: # states' contents
             TextBox((wc, hc-3*sizeText),fontText,"Red players' control keys are EWAZXDSQ"),
             TextBox((wc, hc-2*sizeText),fontText,"Green players' control keys are IUHNMKJY"),
             TextBox((wc, hc-1*sizeText),fontText,"Blue players' control keys are digits on the NumPad "),
-            TextBox((wc, hc),fontText,"The goal is to reach the center of the maze."),
-            Menu([Button(to_menu,(wc, hc+sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
+            TextBox((wc, hc),fontText,"The goal is to reach the way out of the maze."),
+            TextBox((wc, hc+sizeText),fontText,"The exit is on the one of field sides."),
+            Menu([Button(to_menu,(wc, hc+2*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
         ])
+    gameContent=Content([])
             
 to_menu()
 game.play()       
