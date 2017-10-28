@@ -42,9 +42,9 @@ if True: # directions
         }[s][d%s]
 
     controlkeys=[
-    [K_e,K_w,K_a,K_z,K_x,K_d,K_s,K_q],
-    [K_i,K_u,K_h,K_n,K_m,K_k,K_j,K_y],
-    [K_KP9,K_KP7,K_KP4,K_KP1,K_KP3,K_KP6,K_KP5,K_KP8],
+    [K_a,K_q,K_w,K_e,K_d,K_s],
+    [K_j,K_u,K_i,K_o,K_l,K_k],
+    [K_KP4,K_KP7,K_KP8,K_KP9,K_KP6,K_KP5],
     ]
 
 if True: # fonts
@@ -64,7 +64,7 @@ class Screen:
         self.display=pygame.display.set_mode(size)
         pygame.display.set_caption(name)
 
-mainScreen=Screen(WINDOW,(812,692))
+mainScreen=Screen(WINDOW,(600,692)) #812
 
 class Element:
     screen=mainScreen
@@ -237,24 +237,29 @@ class Option(Button):
         return self.parameter.name+": "+str(self.parameter.value)
 
 class Line(Element):
-    def __init__(self,start,end):
+    def __init__(self,start,end,color=lineColor):
         self.start=start
         self.end=end
+        self.color=color
 
     def show(self):
-        pygame.draw.line(self.screen.display, lineColor, self.start,self.end,5)
+        pygame.draw.line(self.screen.display, self.color, self.start,self.end,3)
                     
 class Player(Element):
     def __init__(self,cell,controls,name,color=playerColor):
         self.cell=cell
         d={
-            'HEXAGON':[0,1,2,3,4,5,3,1],
-            'SQUARE': [0,0,1,2,2,3,2,0]
+            'HEXAGON':[0,1,2,3,4,5],
+            'SQUARE': [1,1,0,3,3,2]
+            # 'HEXAGON':[0,1,2,3,4,5,3,1],
+            # 'SQUARE': [0,0,1,2,2,3,2,0]
+
             }[cell.shape]
         self.control=dict(zip(controls,d))
         self.name=name
         self.color=color
         self.size=self.cell.size
+        self.track=[]
 
 
     def handle(self,event):
@@ -267,8 +272,11 @@ class Player(Element):
                         while n: 
                             n.visible=False  
                             n=n.doors[i] 
-                if self.cell.doors[d]:
-                    self.cell=self.cell.doors[d]
+                nc=self.cell.doors[d]
+                if nc:
+                    if self.track:
+                        self.track.append(Line(self.cell.center,nc.center))
+                    self.cell=nc
                 self.cell.visible=True
                 if self.cell.object == EXIT:
                     you_win()
@@ -277,6 +285,12 @@ class Player(Element):
                     while n: 
                         n.visible=True  
                         n=n.doors[i] if lights.value=='flashlight' else False
+            if event.key == K_t:
+                if self.track : 
+                    self.track=[]
+                else :
+                    self.track=[Element()]
+            
 
 
     def corners(self):
@@ -290,6 +304,8 @@ class Player(Element):
 
     def show(self):
         pygame.draw.polygon(self.screen.display, self.color, self.corners())
+        for line in self.track:
+            line.show()
    
 class Cell(Element):
     def __init__(self,center,size,shape,vis=True,obj=EMPTY):
@@ -304,12 +320,12 @@ class Cell(Element):
         sx,sy=size
         self.corners={
             'HEXAGON':[
-                (cx,cy-sy),
-                (cx-sx,cy-sy/2),
-                (cx-sx,cy+sy/2),
-                (cx,cy+sy),
-                (cx+sx,cy+sy/2),
-                (cx+sx,cy-sy/2),
+                (cx-sx,cy),
+                (cx-sx/2,cy-sy),
+                (cx+sx/2,cy-sy),
+                (cx+sx,cy),
+                (cx+sx/2,cy+sy),
+                (cx-sx/2,cy+sy),
                 ]
                 ,
             'SQUARE':[
@@ -343,7 +359,7 @@ class Field(Element):
         self.diameter=n
         self.shape=shape
         self.cell_size={
-            'HEXAGON':(self.screen.display_width/(2*n),(2*self.screen.display_height)/(3*n)),
+            'HEXAGON':((2*self.screen.display_width)/(3*n),(self.screen.display_height)/(2*n)),
             'SQUARE':(self.screen.display_width/(2*n),self.screen.display_height/(2*n))}[shape]
         self.cells={}
 
@@ -427,19 +443,19 @@ class Field(Element):
         ddw=(self.screen.display_width-dw)/2
         dh=(self.screen.display_height/n)*n
         ddh=(self.screen.display_height-dh)/2
-        # return {
-        #     'HEXAGON':(dw/(4*n)+dw/4+i*dw/(n)-dw*j/2/(n),dh/(2*n)+j*dh/(n)),
-        #     'SQUARE':(dw/(2*n)+i*dw/(n),dh/(2*n)+j*dh/(n))
-        #     }[self.shape]
         return {
-            'HEXAGON':(ddw+dw/(4*n)+dw/4+i*dw/(n)-dw*j/2/(n),ddh+dh/(2*n)+j*dh/(n)),
-            'SQUARE':(ddw+dw/(2*n)+i*dw/(n),dh/(2*n)+j*dh/(n)+ddh)
+            'HEXAGON':(ddw+dw/(2*n)+j*dw/(n),ddh+dh/(4*n)+dh/4+i*dh/(n)-dh*j/2/(n)),
+            'SQUARE':(ddw+dw/(2*n)+i*dw/(n),ddh+dh/(2*n)+j*dh/(n))
             }[self.shape]
+        # return {
+            # 'HEXAGON':(ddw+dw/(4*n)+dw/4+i*dw/(n)-dw*j/2/(n),ddh+dh/(2*n)+j*dh/(n)),
+            # 'SQUARE':(ddw+dw/(2*n)+i*dw/(n),dh/(2*n)+j*dh/(n)+ddh)
+            # }[self.shape]
 
 
     def show(self):
         for cell in self.cells.values():
-            cell.show() 
+            cell.show()
 
 if True: # Parameters   
     fiblist = [0,1,2]
@@ -522,9 +538,9 @@ if True: # states' contents
             # TextBox((wc, hc-2*sizeCaption),fontCaption,name),])
     
     infoContent=Content([
-            TextBox((wc, hc-3*sizeText),fontText,"Red players' control keys are EWAZXDSQ"),
-            TextBox((wc, hc-2*sizeText),fontText,"Green players' control keys are IUHNMKJY"),
-            TextBox((wc, hc-1*sizeText),fontText,"Blue players' control keys are digits on the NumPad "),
+            TextBox((wc, hc-3*sizeText),fontText,"Red players' control keys are QWEASD"),
+            TextBox((wc, hc-2*sizeText),fontText,"Green players' control keys are UIOJKL"),
+            TextBox((wc, hc-1*sizeText),fontText,"Blue players' control keys are 4-9 digits on the NumPad "),
             TextBox((wc, hc),fontText,"The goal is to reach the way out of the maze."),
             TextBox((wc, hc+sizeText),fontText,"The exit is on the one of field sides."),
             Menu([Button(to_menu,(wc, hc+2*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
