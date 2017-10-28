@@ -6,11 +6,12 @@ if True: # import and init
     from pygame.locals import *
     pygame.init()
 
-if True: # object codess
+if True: # object codess and constants
     EMPTY=0
     EXIT=1
     ZEROSPEED=30
     WINDOW='TheWayOut'
+    ENEMYMOVE=USEREVENT + 1
 
 if True: # colors
     WHITE=(255,255,255)
@@ -19,9 +20,10 @@ if True: # colors
     lineColor=(200,0,0)
     playerColor=(234,0,40)
     wallColor=(245,245,0)
-    floorColor=(0,20,0)
+    floorColor=[(0,0,0),(0,20,0),(0,40,0),(0,80,0)]
     exitColor=(255,90,0)
-    playerColors=[(200,0,0),(0,200,0),(0,0,200),]
+    playerColors=[(0,240,0),(0,0,200),(0,240,200)]
+    enemyColor=(200,0,0)
 
 if True: # directions
     further = lambda i, j, d, s: { 
@@ -134,7 +136,7 @@ class Game(Element):
     def move(self):
         if not self.stopped:
             self.content.move()
-            pygame.time.wait(int(1.25**(ZEROSPEED-self.speed))) 
+            pygame.time.delay(int(1.25**(ZEROSPEED-self.speed))) 
 
     def play(self):
         while True:
@@ -244,6 +246,58 @@ class Line(Element):
 
     def show(self):
         pygame.draw.line(self.screen.display, self.color, self.start,self.end,3)
+
+class Enemy(Element):
+    def __init__(self,cell,name='A bot',direction=0):
+        self.cell=cell
+        self.color=enemyColor
+        self.size=self.cell.size
+        self.direction=direction
+        self.been={cell:1}
+        self.name=name
+
+    def handle(self,event):
+        if event.type==ENEMYMOVE:
+            if self.cell.object == EXIT:
+                you_win(self)
+            c=self.cell
+            b=self.been[c]
+            d={False:[],True:[c]}
+            for n in c.doors:
+                if n:
+                    d[n in self.been.keys()].append(n)
+            if d[False]:
+                l=d[False]
+                n=l[int(rnd()*len(l))]
+            else:
+                for m in d[True]:
+                    if self.been[m] <= b:
+                        n=m
+                        b=self.been[m]
+            self.cell=n
+            self.been[n]=b+1
+
+        
+    def corners(self):
+        cx,cy=self.cell.center
+        sx,sy=self.size
+        return [
+            (cx,cy+sy-1),
+            (cx+sx-1,cy),
+            (cx,cy-sy+1),
+            (cx-sx+1,cy)]
+
+    def show(self):
+        if self.cell.visible>1:
+            pygame.draw.polygon(self.screen.display, enemyColor, self.corners())
+        # for line in self.track:
+        #     line.show()
+
+    def __str__(self):
+        return self.name
+
+
+        
                     
 class Player(Element):
     def __init__(self,cell,controls,name,color=playerColor):
@@ -266,24 +320,24 @@ class Player(Element):
         if event.type==KEYDOWN :
             if event.key in self.control.keys():
                 d=self.control[event.key]
-                if (amap.value=='empty'):
-                    for i in range(self.cell.sides):
-                        n=self.cell 
-                        while n: 
-                            n.visible=False  
-                            n=n.doors[i] 
+                self.direction=d
+                for i in range(self.cell.sides):
+                    n=self.cell 
+                    while n: 
+                        n.visible=0 if (amap.value=='empty') else 1
+                        n=n.doors[i] 
                 nc=self.cell.doors[d]
                 if nc:
                     if self.track:
                         self.track.append(Line(self.cell.center,nc.center))
                     self.cell=nc
-                self.cell.visible=True
+                self.cell.visible=2
                 if self.cell.object == EXIT:
-                    you_win()
+                    you_win(self)
                 for i in range(self.cell.sides):
                     n=self.cell.doors[i] if lights.value!='nothing' else False
                     while n: 
-                        n.visible=True  
+                        n.visible=2 
                         n=n.doors[i] if lights.value=='flashlight' else False
             if event.key == K_t:
                 if self.track : 
@@ -306,9 +360,12 @@ class Player(Element):
         pygame.draw.polygon(self.screen.display, self.color, self.corners())
         for line in self.track:
             line.show()
+
+    def __str__(self):
+        return self.name
    
 class Cell(Element):
-    def __init__(self,center,size,shape,vis=True,obj=EMPTY):
+    def __init__(self,center,size,shape,vis=1,obj=EMPTY):
         self.sides={'H':6,'S':4}[shape[0]]
         self.doors=[False]*self.sides
         self.shape=shape
@@ -340,7 +397,7 @@ class Cell(Element):
     def show(self):
         # print self.sides,self.corners
         if self.visible:
-            pygame.draw.polygon(self.screen.display, floorColor, self.corners,0)
+            pygame.draw.polygon(self.screen.display, floorColor[self.visible], self.corners,0)
             for i in range(self.sides):
                 if not self.doors[i]:
                     pygame.draw.line(self.screen.display, wallColor, self.corners[i-1],self.corners[i],1)
@@ -464,10 +521,12 @@ if True: # Parameters
         fiblist.append(fiblist[-1]+fiblist[-2])
         sizes.append(sizes[-1]+i/4+1)
     size = Parameter('Field size',sizes,8)
-    cycles = Parameter('Extra doors',fiblist)
+    cycles = Parameter('Extra appertures',fiblist)
     shape = Parameter('Shape',['SQUARE','HEXAGON'])
     players =Parameter('Number of players',[1,2,3])
-    lights = Parameter('Light',['nothing','torch','flashlight'])
+    enemies =Parameter('Number of bots',range(5))
+    speed=Parameter("Bots' speed",range(1,5))
+    lights = Parameter('Light',['flashlight','torch','nothing',])
     amap = Parameter('Map',['full','dynamic','empty'])
     
 
@@ -476,9 +535,17 @@ if True: # state changers
     def to_menu():
         game.fill(menuContent)
         
-    def from_scratch():    
+    def from_scratch(): 
+        pygame.time.set_timer(ENEMYMOVE,{
+            1:1000,
+            2:500,
+            3:200,
+            4:100,
+            }[speed.value]) 
+        
         s=size.value-1
         f=Field(size.value,shape.value,cycles.value)
+        e=[Enemy(f.cells[(s,s)]) for k in range(enemies.value) ]
 
         # f.cells[(0,0)].object=EXIT
         # cs=f.cells.values()
@@ -489,10 +556,11 @@ if True: # state changers
             # e=Cell(c.center,(s,s),c.shape)
             # e.doors=[c]*10
             p.append(Player(c,controlkeys[k],"Player "+str(k+1),playerColors[k]))
-        gameContent.elements=[Button(to_menu,(0, 0),fontOption," ",K_BUTTON=K_ESCAPE),f]+p
+        gameContent.elements=[Button(to_menu,(0, 0),fontOption," ",K_BUTTON=K_ESCAPE),f]+e+p
         game.fill(gameContent)
 
-    def you_win():
+    def you_win(element):
+        congratsContent.elements[-1]=TextBox((wc, hc-2*sizeCaption),fontCaption,str(element),element.color)
         game.fill(congratsContent)
 
     def to_options():
@@ -507,19 +575,42 @@ if True: # state changers
 
     def to_info():
         game.fill(infoContent)
+
+    def to_participants():
+        game.fill(participantsContent)
+
+    def to_map():
+        game.fill(mapContent)
+
  
 if True: # states' contents  
     wc=mainScreen.display_width/2
     hc=mainScreen.display_height/2
+
+    mapContent = Content([
+            Menu([
+                Option(shape,(wc,hc-sizeOption),fontOption),
+                Option(size,(wc,hc),fontOption),
+                Option(cycles,(wc,hc+sizeOption),fontOption),
+                Option(amap,(wc, hc+2*sizeOption),fontOption),
+                Button(to_options,(wc, hc+3*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
+            TextBox((wc, hc-2*sizeCaption),fontCaption,"Map")])
+    
+    participantsContent = Content([
+            Menu([
+                Option(players,(wc, hc-sizeOption),fontOption),
+                Option(lights,(wc, hc),fontOption),
+                Option(enemies,(wc,hc+sizeOption),fontOption),
+                Option(speed,(wc, hc+2*sizeOption),fontOption),
+                Button(to_options,(wc, hc+3*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
+            TextBox((wc, hc-2*sizeCaption),fontCaption,"Participants")])
+
+
     optionsContent = Content([
             Menu([
-                Option(size,(wc,hc-2*sizeOption),fontOption),
-                Option(cycles,(wc,hc-sizeOption),fontOption),
-                Option(shape,(wc, hc),fontOption),
-                Option(lights,(wc, hc+sizeOption),fontOption),
-                Option(amap,(wc, hc+2*sizeOption),fontOption),
-                Option(players,(wc, hc+3*sizeOption),fontOption),
-                Button(to_menu,(wc, hc+4*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
+                Button(to_map,(wc, hc-sizeOption),fontOption,"MAP",K_BUTTON=K_m),
+                Button(to_participants,(wc, hc),fontOption,"PARTICIPANTS",K_BUTTON=K_p),
+                Button(to_menu,(wc, hc+sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
             TextBox((wc, hc-2*sizeCaption),fontCaption,"Options")])
             
     menuContent=Content([
@@ -533,14 +624,13 @@ if True: # states' contents
             Menu([Button(from_scratch,(wc, hc),fontOption,"REPLAY"),
                 Button(to_game,(wc, hc+sizeOption),fontOption,"CONTINUE",K_BUTTON=K_ESCAPE),
                 Button(to_menu,(wc, hc+2*sizeOption),fontOption,"EXIT",K_BUTTON=K_ESCAPE),]),
-            TextBox((wc, hc-3*sizeCaption),fontCaption,"Congrats!"),
-            TextBox((wc, hc-sizeCaption),fontCaption,"The way out's found!"),])
-            # TextBox((wc, hc-2*sizeCaption),fontCaption,name),])
+            TextBox((wc, hc-sizeCaption),fontCaption,"has found the way out!"),
+            TextBox((wc, hc-2*sizeCaption),fontCaption,"Somebody")])
     
     infoContent=Content([
             TextBox((wc, hc-3*sizeText),fontText,"Red players' control keys are QWEASD"),
             TextBox((wc, hc-2*sizeText),fontText,"Green players' control keys are UIOJKL"),
-            TextBox((wc, hc-1*sizeText),fontText,"Blue players' control keys are 4-9 digits on the NumPad "),
+            TextBox((wc, hc-1*sizeText),fontText,"Blue players' control keys are 4-9 on the NumPad "),
             TextBox((wc, hc),fontText,"The goal is to reach the way out of the maze."),
             TextBox((wc, hc+sizeText),fontText,"The exit is on the one of field sides."),
             Menu([Button(to_menu,(wc, hc+2*sizeOption),fontOption,"BACK",K_BUTTON=K_ESCAPE)]),
@@ -548,6 +638,7 @@ if True: # states' contents
     gameContent=Content([])
             
 to_menu()
-game.play()       
+game.play() 
+
 
 
