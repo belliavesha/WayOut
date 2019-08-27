@@ -217,7 +217,8 @@ class Map(Element):
 
     def isInside(self,v):
         x,y,z,t = tuple(v)
-        if self.cell!='tesseract' and (x+y+z+t)%2:
+        if self.cell!='tesseract' and not (x%2==y%2==z%2==t%2):
+
             return False
         return x>=0 and x<self.Width  and y>=0 and y<self.Height and z>=0 and z<self.Depth and t>=0 and t<self.Fourth
 
@@ -266,21 +267,36 @@ class Map(Element):
 
         else:
 
+            # self.dcs = [
+            #     array([+1,+1,-1,-1],dtype=int), array([-1,-1,+1,+1],dtype=int),
+            #     array([+1,-1,+1,-1],dtype=int), array([-1,+1,-1,+1],dtype=int),
+            #     array([+1,-1,-1,+1],dtype=int), array([-1,+1,+1,-1],dtype=int),
+            #     array([+1,+1,+1,+1],dtype=int), array([-1,-1,-1,-1],dtype=int),
+            #     array([+1,+1,+1,-1],dtype=int), array([-1,-1,-1,+1],dtype=int),
+            #     array([+1,+1,-1,+1],dtype=int), array([-1,-1,+1,-1],dtype=int),
+            #     array([+1,-1,+1,+1],dtype=int), array([-1,+1,-1,-1],dtype=int),
+            #     array([-1,+1,+1,+1],dtype=int), array([+1,-1,-1,-1],dtype=int)]
             self.dcs = [
-                array([+1,+1,-1,-1],dtype=int), array([-1,-1,+1,+1],dtype=int),
-                array([+1,-1,+1,-1],dtype=int), array([-1,+1,-1,+1],dtype=int),
-                array([+1,-1,-1,+1],dtype=int), array([-1,+1,+1,-1],dtype=int),
-                array([+1,+1,+1,+1],dtype=int), array([-1,-1,-1,-1],dtype=int),
-                array([+1,+1,+1,-1],dtype=int), array([-1,-1,-1,+1],dtype=int),
-                array([+1,+1,-1,+1],dtype=int), array([-1,-1,+1,-1],dtype=int),
+                array([0+2,0,0,0],dtype=int), array([0-2,0,0,0],dtype=int),
+                array([0,0+2,0,0],dtype=int), array([0,0-2,0,0],dtype=int),
+                array([0,0,0+2,0],dtype=int), array([0,0,0-2,0],dtype=int),
+                array([0,0,0,0+2],dtype=int), array([0,0,0,0-2],dtype=int),
+                array([-1,+1,+1,+1],dtype=int), array([+1,-1,-1,-1],dtype=int),
                 array([+1,-1,+1,+1],dtype=int), array([-1,+1,-1,-1],dtype=int),
-                array([-1,+1,+1,+1],dtype=int), array([+1,-1,-1,-1],dtype=int)]
+                array([+1,+1,-1,+1],dtype=int), array([-1,-1,+1,-1],dtype=int),
+                array([+1,+1,+1,-1],dtype=int), array([-1,-1,-1,+1],dtype=int),
+                ] 
             self.ssd = [(0,1),(2,3),(4,5),(6,7)]
 
         self.dcl = len(self.dcs)
 
         if mazetype == 'depth-first':
-            path = [array([choice(range(Width)),choice(range(Height)),choice(range(Depth)),choice(range(Fourth))],dtype=int)]
+            first = array([choice(range(Width)),choice(range(Height)),choice(range(Depth)),choice(range(Fourth))],dtype=int)
+            while self.cell!='tesseract' and not self.isInside(first):
+                first = array([choice(range(Width)),choice(range(Height)),choice(range(Depth)),choice(range(Fourth))],dtype=int)
+            print(first)
+            path = [first]
+
             while path:
                 nexts = []
                 v = path[-1] 
@@ -295,7 +311,11 @@ class Map(Element):
                 else: path.pop()
 
         elif mazetype == 'breadth-first':
+
             first = array([choice(range(Width)),choice(range(Height)),choice(range(Depth)),choice(range(Fourth))],dtype=int)
+            while self.cell!='tesseract' and not self.isInside(first):
+                first = array([choice(range(Width)),choice(range(Height)),choice(range(Depth)),choice(range(Fourth))],dtype=int)
+            print(first)
             path = [(first,-1)]
             # self.visited[tuple(first)]=2
             while path:
@@ -320,23 +340,24 @@ class Map(Element):
             while verts:
 
                 v = verts.pop() 
-                doors[tuple(v)] = -1
-                cur +=1 
-                while visited[tuple(v)]>-0.5:
-                    visited[tuple(v)] = cur
-                    s =  randrange(0,self.dcl)
-                    vn = v-self.dcs[s]
-                    if self.isInside(vn):
-                        v = vn
-                        if visited[tuple(v)]<cur:
-                            doors[tuple(v)]=s
+                if self.isInside(v):
+                    doors[tuple(v)] = -1
+                    cur +=1 
+                    while visited[tuple(v)]>-0.5:
+                        visited[tuple(v)] = cur
+                        s =  randrange(0,self.dcl)
+                        vn = v-self.dcs[s]
+                        if self.isInside(vn):
+                            v = vn
+                            if visited[tuple(v)]<cur:
+                                doors[tuple(v)]=s
 
-                while doors[tuple(v)]>-0.5:
-                    s = doors[tuple(v)]
-                    vn = v+self.dcs[s]
-                    self.delWall(v,vn,s)
-                    v = vn
-                    visited[tuple(v)] = -1 
+                    while doors[tuple(v)]>-0.5:
+                        s = doors[tuple(v)]
+                        vn = v+self.dcs[s]
+                        self.delWall(v,vn,s)
+                        v = vn
+                        visited[tuple(v)] = -1 
 
 
 
@@ -347,27 +368,28 @@ class Map(Element):
             rooms = [[]]
             for v1,d in doors:
                 # print(visited)
-                v2 = v1+self.dcs[d*2]
-                if self.isInside(v2):
-                    self.walls[tuple(v1)]+=2**d
-                    vis1, vis2 = visited[tuple(v1)], visited[tuple(v2)]
-                    if vis1>vis2 :
-                        v1,vis1,v2,vis2 = v2,vis2,v1,vis1
-                    if vis1==0 :
-                        if vis2==vis1: 
-                            visited[tuple(v1)]=len(rooms)
-                            visited[tuple(v2)]=len(rooms)
-                            rooms.append([v1,v2])
-                        else: 
-                            rooms[vis2].append(v1)
-                            visited[tuple(v1)] = vis2
-                    else:
-                        if vis2==vis1 :
-                            self.walls[tuple(v1)]-=2**d
+                if self.isInside(v1):
+                    v2 = v1+self.dcs[d*2]
+                    if self.isInside(v2):
+                        self.walls[tuple(v1)]+=2**d
+                        vis1, vis2 = visited[tuple(v1)], visited[tuple(v2)]
+                        if vis1>vis2 :
+                            v1,vis1,v2,vis2 = v2,vis2,v1,vis1
+                        if vis1==0 :
+                            if vis2==vis1: 
+                                visited[tuple(v1)]=len(rooms)
+                                visited[tuple(v2)]=len(rooms)
+                                rooms.append([v1,v2])
+                            else: 
+                                rooms[vis2].append(v1)
+                                visited[tuple(v1)] = vis2
                         else:
-                            for v2 in rooms[vis2]:
-                                visited[tuple(v2)] = vis1
-                                rooms[vis1].append(v2) 
+                            if vis2==vis1 :
+                                self.walls[tuple(v1)]-=2**d
+                            else:
+                                for v2 in rooms[vis2]:
+                                    visited[tuple(v2)] = vis1
+                                    rooms[vis1].append(v2) 
         else:
             extra = 3.0
 
@@ -512,17 +534,17 @@ class Main(Element):
         self.screen = screen 
 
         if "Parameters": 
-            self.width = Parameter('1st',range(1,16),5)
-            self.height = Parameter('2nd',range(1,16),5)
-            self.depth = Parameter('3rd',range(1,16),1)
-            self.fourth = Parameter('4th',range(1,16),1)
+            self.width = Parameter('1st',range(1,26),7)
+            self.height = Parameter('2nd',range(1,26),7)
+            self.depth = Parameter('3rd',range(1,26),7)
+            self.fourth = Parameter('4th',range(1,26),7)
 
             self.cycles = Parameter('% extra ways',[0.,.1,1.,10,50,99])
             self.vis = Parameter('Paint',['auto','space','none'],cur =1)
 
             self.cell = Parameter('Cell',['tesseract','orthoplex'])
 
-            self.shape = Parameter('Build',['breadth-first','depth-first','random-walls','random-walks','empty'],cur = 3)
+            self.shape = Parameter('Build',['breadth-first','depth-first','random-walls','random-walks','empty'],cur = 2)
 
         if "Contents":
             self.menuContent=Content([
